@@ -1,8 +1,9 @@
 const parse = require('csv-parse')
 const fs = require('fs')
 const axios = require('axios');
-
+const FormData = require('form-data');
 const slackToken = 'slack token here';
+
 async function postMessage(message) {
   const url = 'https://slack.com/api/chat.postMessage';
   const res = await axios.post(url, {
@@ -11,6 +12,21 @@ async function postMessage(message) {
   }, { headers: { 'Content-Type': 'application/json; charset=utf-8', authorization: `Bearer ${slackToken}` } });
 
   console.log('Done', res.data);
+}
+
+function uploadFile(file) {
+  const form = new FormData();
+
+  form.append('token', slackToken)
+  form.append('channels', 'general')
+  form.append('file', fs.createReadStream(file), 'nethermind-versions-usage.csv')
+
+  return axios.post('https://slack.com/api/files.upload', form, {
+      headers: form.getHeaders()
+  }).then(function (response) {
+      var serverMessage = response.data;
+      console.log(serverMessage);
+  });
 }
 
 const today = new Date()
@@ -97,13 +113,13 @@ The number of all nodes is *${allStats}* and synced nodes are *${syncedStats}*`
           "type": "image",
           "title": {
             "type": "plain_text",
-            "text": "Etherscan Nethermind nodes data"
+            "text": "Ethernodes.org Nethermind nodes data"
           },
           "block_id": "quickchart-image",
           "image_url": `${chartUrl}`,
-          "alt_text": "Etherscan statistics of Nethermind nodes"
+          "alt_text": "Ethernodes.org statistics of Nethermind nodes"
         }
       ]
-    ).catch(err => console.log(err));
+    ).then(uploadFile('data-versions.csv').catch(err => console.log(err))).catch(err => console.log(err));
   })
 })
