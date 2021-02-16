@@ -11,7 +11,7 @@ async function postMessage(message) {
     blocks: JSON.stringify(message)
   }, { headers: { 'Content-Type': 'application/json; charset=utf-8', authorization: `Bearer ${slackToken}` } });
 
-  console.log('Done', res.data);
+  console.log('Done');
 }
 
 function uploadFile(file) {
@@ -23,10 +23,7 @@ function uploadFile(file) {
 
   return axios.post('https://slack.com/api/files.upload', form, {
       headers: form.getHeaders()
-  }).then(function (response) {
-      var serverMessage = response.data;
-      console.log(serverMessage);
-  });
+  }).then(console.log('Done'));
 }
 
 const today = new Date()
@@ -38,15 +35,20 @@ fs.readFile('data.csv', function (err, fileData) {
     const toCompare = rows.slice(-4,-2)
     const lastTwoRecords = rows.slice(-2)
 
+    const allRecords = lastTwoRecords.filter(obj => obj.type === 'all')
+    const syncedRecords = lastTwoRecords.filter(obj => obj.type === 'synced')
+    const toCompareAllRecords = toCompare.filter(obj => obj.type === 'all')
+    const toCompareSyncedRecords = toCompare.filter(obj => obj.type === 'synced')
+
     // data of last 2 records
-    let allCount = lastTwoRecords[0].count
-    let allPercentage = lastTwoRecords[0].percentage
-    let syncedCount = lastTwoRecords[1].count
-    let syncedPercentage = lastTwoRecords[1].percentage
+    let allCount = allRecords[0].count
+    let allPercentage = allRecords[0].percentage
+    let syncedCount = syncedRecords[0].count
+    let syncedPercentage = syncedRecords[0].percentage
 
     // data of records from day before
-    let prevAllCount = toCompare[0].count
-    let prevSyncedCount = toCompare[1].count
+    let prevAllCount = toCompareAllRecords[0].count
+    let prevSyncedCount = toCompareSyncedRecords[0].count
 
     countAllGrowth = allCount - prevAllCount
     countSyncedGrowth = syncedCount - prevSyncedCount
