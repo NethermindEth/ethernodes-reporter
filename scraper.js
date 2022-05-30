@@ -1,8 +1,9 @@
 const rp = require('request-promise');
-const fs = require('fs');
 const cheerio = require('cheerio');
 const csvWriter = require('csv-write-stream')
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const sheets = require('./googleSheetsService.js');
+const spreadsheetId = process.env.DOC_ID;
 
 const links = [
   'https://ethernodes.org',
@@ -48,39 +49,44 @@ const getNethermindVersions = async (versions) => {
   return Promise.all(versionsMap);
 };
 
-links.forEach(link => getNetherminds(link).then(result => {
-  for(let i in result){
-    if (result[i].name == 'nethermind')
-    {
-      if (!fs.existsSync('data.csv'))
-        writer = csvWriter({ headers: ["timestamp", "name", "count", "type", "percentage"]});
-      else
-        writer = csvWriter({sendHeaders: false});
-        writer.pipe(fs.createWriteStream('data.csv', {flags: 'a'}));
-        writer.write({
-          timestamp: new Date().toISOString().split('T')[0],
-          name: result[i].name,
-          count: result[i].count,
-          type: link.endsWith('?synced=1') ? 'synced' : 'all',
-          percentage: result[i].percentage.replace(/[()]/g,'')
-        });
-        writer.end();
-    };
+const scraper = async () => {
+  const updateCSV = async (result, link) => {
+    for(let i in result){
+      if (result[i].name == 'nethermind')
+      {
+        const values = [[
+          new Date().toISOString().split('T')[0],
+          result[i].name,
+          result[i].count,
+          link.endsWith('?synced=1') ? 'synced' : 'all',
+          result[i].percentage.replace(/[()]/g,'')
+        ]];
+        console.log('updating remote csv');
+        await sheets.appendValues({spreadsheetId: spreadsheetId, values:values});
+      };
+    }
+  };
+  for (const link of links) {
+    const result = await getNetherminds(link);
+    await(updateCSV(result, link));
   }
-}).then(() => console.log('Scraping done!')))
+  console.log('Scraping done!');
+}
 
-getNethermindVersions(versions).then(result => {
-  const csvWriter = createCsvWriter({
-    path: 'data-versions.csv',
+const data_versions = async (callback) => {
+  const result = await getNethermindVersions(versions).catch(e => { console.log(e) });
+  const csvWriter2 = await createCsvWriter({
+    path: '/tmp/data-versions.csv',
     header: [
         {id: 'version', title: 'version'},
         {id: 'count', title: 'count'},
         {id: 'percentage', title: 'percentage'}
     ]
   });
-  console.log(result)
-  csvWriter.writeRecords(result.slice(1))
-    .then(() => {
-        console.log('...Done');
-    });
-}).then(() => console.log('Scraping done!'))
+  console.log('result');
+  console.log(result);
+  await csvWriter2.writeRecords(result.slice(1));
+  console.log('...Done');  
+}
+
+module.exports = { scraper, data_versions };
